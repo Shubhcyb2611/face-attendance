@@ -1,0 +1,29 @@
+# Ignore Python venv
+venv/
+__pycache__/
+
+# Backend models
+backend/face-engine/*.onnx
+backend/face-engine/models/
+backend/face-engine/data/
+backend/face-engine/store/
+backend/face-engine/embeddings.json
+
+# Frontend build + dependencies
+node_modules/
+dist/
+dist-ssr/
+
+# IDE
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Environment files
+.env
+*.env
