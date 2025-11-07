@@ -1,13 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { checkBlink, checkHeadTurn, loadLivenessModel } from "../useLiveness";
 
 const API_BASE = "http://localhost:8000"; // Backend URL
+
+function isLiveFrame(prev: ImageData | null, curr: ImageData, threshold = 8): boolean {
+  if (!prev) return true;
+
+  let diff = 0;
+  for (let i = 0; i < curr.data.length; i += 4) {
+    diff += Math.abs(curr.data[i] - prev.data[i]);
+  }
+
+  const avgDiff = diff / (curr.data.length / 4);
+  return avgDiff > threshold;
+}
 
 export default function CameraPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [staffId, setStaffId] = useState("");
-    const [staffName, setStaffName] = useState(""); 
+  const [staffName, setStaffName] = useState(""); 
+  const [faceLM, setFaceLM] = useState<any>(null);
 
   // Start camera
   useEffect(() => {
@@ -26,25 +40,34 @@ export default function CameraPage() {
     };
 
     startCam();
+    loadLivenessModel().then(setFaceLM);
+
   }, []);
 
+  const prevFrameRef = useRef<ImageData | null>(null);
+
   // Capture image frame
-  const captureFrame = (): Blob | null => {
+  const captureFrame = ():  { blob: Blob | null, live: boolean } => {
     const video = videoRef.current;
-    if (!video) return null;
+    if (!video)  return { blob: null, live: false };
 
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
+    if (!ctx) return  { blob: null, live: false };
 
     // Mirror
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const currFrame = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    const live = isLiveFrame(prevFrameRef.current, currFrame);
+    prevFrameRef.current = currFrame;
 
     const dataURL = canvas.toDataURL("image/jpeg");
     const byteString = atob(dataURL.split(",")[1]);
@@ -54,8 +77,9 @@ export default function CameraPage() {
     for (let i = 0; i < byteString.length; i++) {
       ia[i] = byteString.charCodeAt(i);
     }
+console.log(live);
+      return { blob: new Blob([ab], { type: "image/jpeg" }), live };
 
-    return new Blob([ab], { type: "image/jpeg" });
   };
 
   // Enroll staff
@@ -63,13 +87,15 @@ export default function CameraPage() {
     if (!staffId.trim()) return toast.error("Enter staff ID");
     if (!staffName.trim()) return toast.error("Enter Staff Name");
     
-    const imgBlob = captureFrame();
-    if (!imgBlob) return toast.error("Camera not ready");
+    const { blob, live } = captureFrame();
+if (!blob) return toast.error("Camera not ready");
+if (!live) return toast.error("Fake face detected. Try again.");
+
 
     const fd = new FormData();
     fd.append("staffId", staffId);
     fd.append("staffName", staffName); // ✅ NEW
-    fd.append("files", imgBlob, "face.jpg");
+    fd.append("files", blob, "face.jpg");
 
     toast.loading("Enrolling...");
 
@@ -95,11 +121,25 @@ export default function CameraPage() {
 
   // Recognize staff
   const handleRecognize = async () => {
-    const imgBlob = captureFrame();
-    if (!imgBlob) return toast.error("Camera not ready");
+    if (!faceLM) return toast.error("Liveness model loading...");
+      const challenge = Math.random() > 0.5 ? "blink" : "turn";
+
+  toast(`Do a quick ${challenge}`, { icon: "👁️" });
+    let ok = false;
+     if (challenge === "blink") {
+    ok = await checkBlink(faceLM, videoRef.current!);
+  } else {
+    ok = await checkHeadTurn(faceLM, videoRef.current!);
+  }
+
+  if (!ok) return toast.error("Liveness failed");
+    const { blob, live } = captureFrame();
+if (!blob) return toast.error("Camera not ready");
+if (!live) return toast.error("Possible spoof attempt.");
+
 
     const fd = new FormData();
-    fd.append("file", imgBlob, "probe.jpg");
+    fd.append("file", blob, "probe.jpg");
 
     toast.loading("Recognizing...");
 
