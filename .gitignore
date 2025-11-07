@@ -4,6 +4,7 @@ __pycache__/
 
 # Backend models
 backend/face-engine/*.onnx
+backend/face-engine/arcface.b64
 backend/face-engine/models/
 backend/face-engine/data/
 backend/face-engine/store/

@@ -7,6 +7,7 @@ export default function CameraPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState("");
   const [staffId, setStaffId] = useState("");
+    const [staffName, setStaffName] = useState(""); 
 
   // Start camera
   useEffect(() => {
@@ -60,12 +61,14 @@ export default function CameraPage() {
   // Enroll staff
   const handleEnroll = async () => {
     if (!staffId.trim()) return toast.error("Enter staff ID");
-
+    if (!staffName.trim()) return toast.error("Enter Staff Name");
+    
     const imgBlob = captureFrame();
     if (!imgBlob) return toast.error("Camera not ready");
 
     const fd = new FormData();
     fd.append("staffId", staffId);
+    fd.append("staffName", staffName); // ✅ NEW
     fd.append("files", imgBlob, "face.jpg");
 
     toast.loading("Enrolling...");
@@ -80,7 +83,7 @@ export default function CameraPage() {
       toast.dismiss();
 
       if (json.success) {
-        toast.success(`✅ Enrolled: ${staffId}`);
+        toast.success(`${staffName} with staff Id ${staffId} enrolled successfully`);
       } else {
         toast.error(json.error || "Enroll failed");
       }
@@ -110,7 +113,7 @@ export default function CameraPage() {
       toast.dismiss();
 
       if (json.success) {
-        toast.success(`✅ Welcome ${json.staffId} (Score ${json.score})`);
+        toast.success(`Welcome ${json.name} with staffId ${json.staffId} (Score ${json.score})`);
       } else {
         toast.error(json.msg || "Face not recognized");
       }
@@ -148,6 +151,14 @@ export default function CameraPage() {
             placeholder="Enter Staff ID"
             value={staffId}
             onChange={(e) => setStaffId(e.target.value)}
+            className="w-full mt-6 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 outline-none"
+          />
+          {/* ✅ Staff Name Input */}
+          <input
+            type="text"
+            placeholder="Enter Staff Name"
+            value={staffName}
+            onChange={(e) => setStaffName(e.target.value)}
             className="w-full mt-6 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-400 outline-none"
           />
 
